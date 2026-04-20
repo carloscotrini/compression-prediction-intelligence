@@ -1646,6 +1646,100 @@ information-theoretic price of identifying it.  For the full proof
 see \citet[Ch.~5]{livitanyi2019}.
 \end{proof}
 
+\subsection*{Reading the bound as Shannon's inequality}
+
+\Cref{thm:solomonoff} is not really a new theorem so much as Shannon's
+source-coding inequality (\cref{thm:source-coding})
+instantiated at one particular coding distribution, the universal
+mixture $M$.  Recall the prediction-is-compression identity from
+\cref{sec:pred-comp}: coding data drawn from $\mu$ using a wrong
+model $q$ costs
+$H(\mu,q) = H(\mu) + D_{\mathrm{KL}}(\mu\|q)$ bits on average, an
+excess of exactly $D_{\mathrm{KL}}(\mu\|q)$.  The telescoping step in
+the proof sums that excess over all time steps, and dominance
+\eqref{eq:dominance} bounds the total by a single cross-entropy gap:
+\[
+  \sum_{t=1}^{\infty}
+    \mathbb{E}_\mu\!\left[D_{\mathrm{KL}}(\mu_t\|M_t)\right]
+  \;\le\; \log_2 \tfrac{1}{c_\mu}
+  \;\le\; K(\mu) + O(1)\ \text{bits}.
+\]
+Slogan: \emph{Solomonoff's optimality is Shannon's cross-entropy
+inequality, with the universal mixture as the coding distribution,
+charged $K(\mu)$ bits once for the truth.}
+
+Three quantifiers in this reading deserve emphasis because they are
+exactly what will \emph{fail} to carry over to AIXI in
+\cref{sec:aixi}.
+\begin{enumerate}
+  \item \textbf{Additive, not proportional.}  The penalty is $K(\mu)$
+    bits added to your lifetime loss, not a factor that scales with
+    the data.  Per-step loss therefore vanishes.
+  \item \textbf{Paid once, on the hypothesis.}  The charge is
+    $K(\mu)$ --- the description length of the \emph{truth} --- not
+    $K(x_{1:n})$ of the observed data.  You pay for which world you
+    are in, not for how much of it you have seen.
+  \item \textbf{Log-loss, not reward.}  This is a statement about
+    prediction.  Nothing in it says anything about an agent whose
+    actions alter the data stream; that gap is the content of
+    \cref{sec:aixi}.
+\end{enumerate}
+
+\paragraph{Two codes, and Levin's bridge.}  It is easy to conflate
+two different codes floating around this section: the \emph{Shannon
+code of the prior}, of length $-\log_2 M(x)$, and the
+\emph{Kolmogorov code}, of length $K(x)$.  The convergence bound
+above uses the first --- it is $-\log_2 M$, not $K$, that appears in
+the telescoped cross-entropy.  Levin's \emph{coding theorem} is the
+independent, non-trivial result that these agree up to a constant,
+\[
+  K(x) \;=\; -\log_2 M(x) + O(1),
+\]
+and it is Levin's theorem, not the definition of $M$, that licenses
+the slogan ``shorter program $\Leftrightarrow$ higher prior mass.''
+In the notes we will continue to move freely between $-\log_2 M$ and
+$K$; just remember that the permission to do so is a separate
+theorem.
+
+\subsection*{$M$ is a proposed prior, not the truth}
+
+One subtlety worth making explicit before we move on.  The symbol $M$
+is not a claim about reality.  The truth is some other (unknown)
+computable measure $\mu$; $M$ is the agent's \emph{betting
+distribution}.  If we had set $M = \mu$, \cref{thm:solomonoff} would
+be vacuous --- it would just assert that the truth matches itself.
+The content of Solomonoff's theorem lies entirely in the fact that
+$M$ is \emph{different} from $\mu$, yet pays only a finite price for
+the difference.
+
+What privileges $M$, then, is not correctness but \emph{dominance}
+(\eqref{eq:dominance}): for every lower-semicomputable semimeasure
+$\nu$, $M(x) \ge 2^{-K(\nu)+O(1)}\,\nu(x)$.  That inequality is what
+powers the bound, and it is a statement about $M$ relative to the
+\emph{class} of computable competitors, not about whether $M$
+describes nature.  Where does the definition of $M$ actually come
+from?  Two ingredients, both assumptions:
+\begin{enumerate}
+  \item \textbf{Occam + Kraft.}  Once one decides that prior
+    probability should track simplicity, Kraft's inequality forces
+    the weighting $2^{-|\pi|}$: it is the only normalisation
+    compatible with prefix-free decoding over program space.  The
+    \emph{assumption} is the identification of simplicity with prior
+    probability; the $2^{-|\pi|}$ then writes itself.
+  \item \textbf{A choice of reference UTM.}  Different universal
+    machines give different $M$'s, differing by multiplicative
+    constants $2^{O(1)}$ that depend on the hypothesis $\mu$.  This
+    is not a free lunch --- it is the ``bad priors'' knob, and we
+    will see in \cref{sec:aixi} that when prediction is swapped for
+    control this knob upgrades from a constant to a choice between
+    different long-run policies.
+\end{enumerate}
+The honest summary is therefore: Solomonoff does not derive the
+truth.  He derives a \emph{universally competitive prior under Occam,
+Kraft, and a fixed UTM}, and \cref{thm:solomonoff} is the
+Shannon-style guarantee that this particular bet loses at most
+$K(\mu)$ bits against whichever computable $\mu$ nature chose.
+
 \subsection*{A two-program universe, updated step by step}
 
 We now carry out the minimal example in full, because no amount of
@@ -2089,6 +2183,54 @@ prior~\eqref{eq:xi}) plus bookkeeping (the expectimax expansion).
 Remove the Solomonoff prior and the agent collapses to uninformed
 search; keep it, and the agent becomes universally optimal in the
 Pareto sense.
+
+\subsection*{Three caveats Shannon's half does not carry over}
+
+It is tempting to read \cref{thm:aixi-opt} as ``AIXI just plugs
+Solomonoff into an expectimax, therefore it inherits
+\cref{thm:solomonoff}'s optimality.''  This intuition is wrong, and
+the gap is worth making explicit because it explains most of the
+philosophical objections levelled at AIXI in the literature.
+\cref{thm:solomonoff} is a \emph{passive-prediction} guarantee: data
+arrives, the posterior closes in, the regret is additive in
+$K(\mu)$.  A controller's actions \emph{change} what data arrives,
+and that single difference breaks the clean inheritance in three
+ways.
+\begin{enumerate}
+  \item \textbf{Traps and non-ergodicity.}  An irrecoverable action
+    can permanently prevent the agent from ever gathering the data
+    that would have refuted its prior.  Solomonoff's convergence
+    assumes observations keep arriving indefinitely; AIXI can walk
+    off a cliff at step~$3$ and never learn anything afterwards.
+    No log-loss bound protects against this because the log-loss
+    bound is computed in expectation under $\mu$, while the trap
+    changes what $\mu$ even reveals of itself.
+  \item \textbf{Exploration and UTM-dependence.}  Bayes-optimal
+    action under the universal mixture $\xi$ does not, in general,
+    explore enough.  Leike and Hutter (2015) showed that AIXI is
+    \emph{not} asymptotically optimal in every computable
+    environment, and that its long-run behaviour depends on the
+    choice of reference universal machine: the ``bad priors'' knob
+    from \cref{sec:solomonoff} upgrades, in the control setting,
+    from an $O(1)$ constant into a choice between \emph{different
+    policies} that disagree forever.  Two AIXIs with different
+    reference machines can converge to different stationary
+    behaviours in the same environment.
+  \item \textbf{Embedded agency (the anvil problem).}  The
+    expectimax in \eqref{eq:aixi-rule} treats agent and environment
+    as strictly separate objects: $\xi$ models the world, the
+    $\arg\max$ picks the action.  The moment the environment can
+    modify the agent itself --- damage its memory, overwrite its
+    reward channel, drop an anvil on the box running the
+    expectimax --- the formalism no longer type-checks.  AIXI
+    does not model \emph{itself} as part of the world.
+\end{enumerate}
+The honest framing is therefore: AIXI is the \emph{optimal
+prediction-driven agent, modulo ergodicity and a fixed UTM}, not
+``optimal, QED.''  The gap between \cref{thm:solomonoff} and
+\cref{thm:aixi-opt} is exactly the gap between log-loss regret
+(pure Shannon, charged once for the hypothesis) and reward regret
+(control, where the agent's own actions shape the data stream).
 
 \subsection*{Activities}
 
